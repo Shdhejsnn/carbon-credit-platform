@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Auth.css";
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
+import { auth } from "./firebase";  // Ensure the path is correct for your project
+import axios from "axios";
+
 
 interface FormData {
   companyName: string;
@@ -42,28 +46,45 @@ function Auth() {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
+  
     if (isRegistering && formData.password !== formData.confirmPassword) {
       alert("Passwords do not match!");
       return;
     }
-
-    console.log(isRegistering ? "Registering Company: " : "Logging in: ", formData);
-
-    setTimeout(() => {
-      navigate("/home"); // Ensure this route exists
-    }, 1000);
-  };
+  
+    try {
+      let userCredential;
+      if (isRegistering) {
+        userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+      } else {
+        userCredential = await signInWithEmailAndPassword(auth, formData.email, formData.password);
+      }
+  
+      const user = userCredential.user;
+      const idToken = await user.getIdToken();  // Get Firebase ID token
+      console.log("ID Token:", idToken);
+  
+      // Send the token to the backend
+      const response = await axios.post("http://localhost:3000/verify-token", { token: idToken });
+  
+      console.log("Backend Response:", response.data);
+  
+      // Navigate to home page
+      setTimeout(() => navigate("/home"), 1000);
+    } catch (error: any) {
+      console.error("Authentication error:", error.message);
+      alert(`Error: ${error.message}`);
+    }
+  };  
 
   return (
     <div className="auth-container">
       {/* Home Button */}
       <button className="home-btn" onClick={() => navigate("/")}>
-        {/* Use an SVG instead of an image for better scalability */}
         <svg className="home-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" width="24px" height="24px">
-          <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+          <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
         </svg>
         <span>Home</span>
       </button>
