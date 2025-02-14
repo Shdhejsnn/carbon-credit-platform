@@ -1,21 +1,47 @@
-const { ethers } = require("ethers");
+const express = require("express");
+const admin = require("firebase-admin");
+const cors = require("cors");
+const dotenv = require("dotenv");
 
-const provider = new ethers.providers.JsonRpcProvider("http://127.0.0.1:7545");
-const senderPrivateKey = "YOUR_SENDER_PRIVATE_KEY_HERE"; // Replace with one of your Ganache account private keys
-const receiverAddress = "YOUR_RECEIVER_ADDRESS_HERE";    // Replace with another Ganache account address
+dotenv.config(); // Load environment variables
 
-async function main() {
-    const wallet = new ethers.Wallet(senderPrivateKey, provider);
-    console.log("Sender Address:", wallet.address);
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-    const tx = await wallet.sendTransaction({
-        to: receiverAddress,
-        value: ethers.utils.parseEther("1.0"),  // Sending 1 ETH
-    });
+// Middleware
+app.use(cors());
+app.use(express.json());
 
-    console.log("Transaction Sent! Hash:", tx.hash);
-    await tx.wait();
-    console.log("Transaction Mined!");
-}
+// Parse the service account key from the environment variable
+const serviceAccount = JSON.parse(process.env.SERVICE_ACCOUNT_KEY);
 
-main().catch(console.error);
+// Initialize Firebase Admin SDK
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
+// Route to verify Firebase ID Token
+app.post("/verify-token", async (req, res) => {
+  const { token } = req.body;
+
+  if (!token) {
+    return res.status(400).json({ error: "Token is required" });
+  }
+
+  try {
+    // Verify the token
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    console.log("Decoded Token:", decodedToken);
+
+    const { uid, email } = decodedToken;
+
+    res.status(200).json({ message: "Token verified successfully", uid, email });
+  } catch (error) {
+    console.error("Token verification error:", error);
+    res.status(401).json({ error: "Unauthorized" });
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
+});

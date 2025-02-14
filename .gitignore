@@ -10,9 +10,6 @@ pnpm-debug.log*
 node_modules/
 .bower_components/
 
-# Firebase Service Account Key (important!)
-backend/serviceAccountKey.json
-
 # Environment Variables
 .env
 
