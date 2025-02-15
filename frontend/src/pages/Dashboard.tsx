@@ -1,8 +1,9 @@
+// Dashboard.tsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ethers } from 'ethers';
 import { motion } from 'framer-motion';
-import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../constants/contract'; // Correct import
+import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../constants/contract'; 
 
 import {
   LineChart as LineChartIcon,
@@ -23,7 +24,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { MarketPrice, Transaction } from './types';
+import { MarketPrice } from './types';
 import { initializeMarketPrices, getUpdatedPrices } from './marketData';
 
 // Carbon Prices Widget
@@ -58,11 +59,6 @@ const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [marketPrices, setMarketPrices] = useState<MarketPrice[]>(initializeMarketPrices());
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
-  const [transactions, setTransactions] = useState<Transaction[]>([
-    { id: 1, type: 'buy', amount: 50, price: 24.80, date: '2024-03-15' },
-    { id: 2, type: 'sell', amount: 20, price: 25.30, date: '2024-03-14' },
-    { id: 3, type: 'buy', amount: 30, price: 25.10, date: '2024-03-13' },
-  ]);
   const [ethBalance, setEthBalance] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const [companyDetails, setCompanyDetails] = useState<any>(null);
@@ -89,7 +85,7 @@ const Dashboard: React.FC = () => {
     };
 
     fetchBalance();
-  }, []); // Empty dependency array so it runs once on component mount
+  }, []);
 
   useEffect(() => {
     const fetchCompanyDetails = async () => {
@@ -107,7 +103,7 @@ const Dashboard: React.FC = () => {
     };
 
     if (companyId) fetchCompanyDetails();
-  }, [companyId]); // Runs when companyId is set
+  }, [companyId]);
 
   // Fetch live price updates
   useEffect(() => {
@@ -277,30 +273,6 @@ const Dashboard: React.FC = () => {
 
         <div className="mt-6 text-sm text-gray-500 text-center">
           Last updated: {lastUpdate.toLocaleTimeString()}
-        </div>
-
-        {/* Recent Transactions */}
-        <div className="bg-white p-6 rounded-xl shadow-sm mt-8">
-          <h3 className="text-lg font-semibold text-gray-900 mb-6">Recent Transactions</h3>
-          <div className="space-y-4">
-            {transactions.map((transaction) => (
-              <div key={transaction.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div className="flex items-center">
-                  <div className={`p-2 rounded-lg ${transaction.type === 'buy' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
-                    {transaction.type === 'buy' ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-900">{transaction.type === 'buy' ? 'Bought' : 'Sold'} {transaction.amount} Credits</p>
-                    <p className="text-sm text-gray-500">{transaction.date}</p>
-                  </div>
-                </div>
-                <p className="text-sm font-medium text-gray-900">${transaction.price}</p>
-                <Button variant="default" onClick={handleTransactionClick}>
-                  {transaction.type === 'buy' ? 'Buy More' : 'Sell More'}
-                </Button>
-              </div>
-            ))}
-          </div>
         </div>
       </main>
     </div>

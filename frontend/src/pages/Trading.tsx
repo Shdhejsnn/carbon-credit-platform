@@ -1,3 +1,4 @@
+// Trading.tsx
 import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { LineChart } from 'lucide-react';
@@ -6,6 +7,15 @@ import { useNavigate } from 'react-router-dom'; // Import useNavigate for naviga
 
 // Define the type for conversion rates, allowing an empty string
 type ConversionRateKey = '' | 'European Union' | 'UK' | 'Australia' | 'New Zealand' | 'South Korea' | 'China';
+
+interface Transaction {
+  type: 'buy' | 'sell';
+  amount: number;
+  price: number;
+  total: number;
+  status: string;
+  date: string;
+}
 
 const Trading: React.FC = () => {
   const navigate = useNavigate(); // Initialize useNavigate
@@ -20,6 +30,7 @@ const Trading: React.FC = () => {
   const [convertedPrice, setConvertedPrice] = useState<number>(0); // Price in USD
   const [localCurrencyBalance, setLocalCurrencyBalance] = useState<number>(0); // Balance in local currency
   const [usdBalance, setUsdBalance] = useState<number>(0); // Balance in USD
+  const [transactions, setTransactions] = useState<Transaction[]>([]); // State to store transaction history
 
   // Live conversion rates based on the provided market prices
   const conversionRates: Record<ConversionRateKey, { rate: number; currency: string }> = {
@@ -97,6 +108,15 @@ const Trading: React.FC = () => {
 
     const provider = new ethers.JsonRpcProvider('http://localhost:7545');
 
+    let newTransaction: Transaction = {
+      type: orderType,
+      amount: parseFloat(amount),
+      price: convertedPrice,
+      total: parseFloat(amount) * convertedPrice,
+      status: 'Pending',
+      date: new Date().toISOString(),
+    };
+
     if (orderType === 'buy') {
       try {
         const receiverWallet = new ethers.Wallet(receiverPrivateKey, provider);
@@ -111,8 +131,13 @@ const Trading: React.FC = () => {
         console.log("Transaction successful.");
         setEthBalance(prevBalance => prevBalance + parseFloat(amount) / convertedPrice); // Increase balance on buy
         calculateConvertedBalances(ethBalance + parseFloat(amount) / convertedPrice); // Update converted balances
+
+        newTransaction.status = 'Completed';
+        setTransactions([...transactions, newTransaction]);
       } catch (error) {
         console.error("Error processing buy transaction:", error);
+        newTransaction.status = 'Failed';
+        setTransactions([...transactions, newTransaction]);
       }
     } else {
       try {
@@ -128,8 +153,13 @@ const Trading: React.FC = () => {
         console.log("Sell transaction successful.");
         setEthBalance(prevBalance => prevBalance - parseFloat(amount) / convertedPrice); // Decrease balance on sell
         calculateConvertedBalances(ethBalance - parseFloat(amount) / convertedPrice); // Update converted balances
+
+        newTransaction.status = 'Completed';
+        setTransactions([...transactions, newTransaction]);
       } catch (error) {
         console.error("Error processing sell transaction:", error);
+        newTransaction.status = 'Failed';
+        setTransactions([...transactions, newTransaction]);
       }
     }
   };
@@ -315,40 +345,30 @@ const Trading: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {/* Example static data for recent orders */}
-                <tr>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                      Buy
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">100 Credits</td>
-                  <td className="px-6 py-4 whitespace-nowrap">$24.50</td>
-                  <td className="px-6 py-4 whitespace-nowrap">$2,450.00</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                      Completed
-                    </span>
-                  </td>
-                </tr>
-                <tr>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                      Sell
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">50 Credits</td>
-                  <td className="px-6 py-4 whitespace-nowrap">$24.75</td>
-                  <td className="px-6 py-4 whitespace-nowrap">$1,237.50</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                      Completed
-                    </span>
-                  </td>
-                </tr>
+                {transactions.map((transaction, index) => (
+                  <tr key={index}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${transaction.type === 'buy' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                        {transaction.type === 'buy' ? 'Buy' : 'Sell'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">{transaction.amount} Credits</td>
+                    <td className="px-6 py-4 whitespace-nowrap">${transaction.price.toFixed(2)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">${transaction.total.toFixed(2)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${transaction.status === 'Completed' ? 'bg-blue-100 text-blue-800' : transaction.status === 'Failed' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                        {transaction.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">{new Date(transaction.date).toLocaleString()}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
