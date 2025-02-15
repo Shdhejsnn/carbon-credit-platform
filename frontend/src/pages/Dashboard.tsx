@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-<<<<<<< HEAD
 import { useNavigate } from 'react-router-dom';
+import { ethers } from 'ethers';
 import { motion } from 'framer-motion';
 import {
   LineChart as LineChartIcon,
@@ -9,7 +9,6 @@ import {
   Globe,
   Plane,
   Activity,
-  Leaf,
   LogOut,
 } from 'lucide-react';
 import { Button } from '../components/Button';
@@ -51,13 +50,9 @@ const CarbonPricesWidget: React.FC = () => {
     </div>
   );
 };
-=======
-import { ethers } from 'ethers';
->>>>>>> ee828d9dfdd8b6b65a34d490b539ee6b2b0b0e03
 
 // Main Dashboard Component
 const Dashboard: React.FC = () => {
-<<<<<<< HEAD
   const navigate = useNavigate();
   const [marketPrices, setMarketPrices] = useState<MarketPrice[]>(initializeMarketPrices());
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
@@ -66,7 +61,31 @@ const Dashboard: React.FC = () => {
     { id: 2, type: 'sell', amount: 20, price: 25.30, date: '2024-03-14' },
     { id: 3, type: 'buy', amount: 30, price: 25.10, date: '2024-03-13' },
   ]);
-  const [balance, setBalance] = useState<number>(150); // User's balance
+  const [ethBalance, setEthBalance] = useState<number>(0);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  // Replace with your own Ganache account details (address and private key)
+  const ganacheAccountAddress = '0x43dB9f1C54b380e00Cd7F621Cf172518FC184a47'; // Replace with your Ganache address
+  const ganacheAccountPrivateKey = '0x4f7b68ae9950231c2e81a895beb8c452182a5cf8160b0e30697eeac82a86de3e'; // Replace with your Ganache private key
+
+  // Fetch Ethereum balance
+  useEffect(() => {
+    const fetchBalance = async () => {
+      try {
+        const provider = new ethers.JsonRpcProvider('http://localhost:7545'); // Ganache default RPC URL
+        const balance = await provider.getBalance(ganacheAccountAddress); // Fetch balance using the address
+        const ethBalance = ethers.formatEther(balance); // Convert balance from Wei to Ether
+        setEthBalance(parseFloat(ethBalance));
+      } catch (error) {
+        console.error("Error fetching balance:", error);
+        setEthBalance(0); // Set balance to 0 if there's an error
+      } finally {
+        setLoading(false); // Stop loading once balance is fetched
+      }
+    };
+
+    fetchBalance();
+  }, []); // Empty dependency array so it runs once on component mount
 
   // Fetch live price updates
   useEffect(() => {
@@ -131,36 +150,14 @@ const Dashboard: React.FC = () => {
       </div>
     </div>
   );
-=======
-  const [ethBalance, setEthBalance] = useState<number>(0);
-  const [loading, setLoading] = useState<boolean>(true);
->>>>>>> ee828d9dfdd8b6b65a34d490b539ee6b2b0b0e03
 
-  // Replace with your own Ganache account details (address and private key)
-  const ganacheAccountAddress = '0x43dB9f1C54b380e00Cd7F621Cf172518FC184a47';  // Replace with your Ganache address
-  const ganacheAccountPrivateKey = '0x4f7b68ae9950231c2e81a895beb8c452182a5cf8160b0e30697eeac82a86de3e'; // Replace with your Ganache private key
-
-  useEffect(() => {
-    const fetchBalance = async () => {
-      try {
-        const provider = new ethers.JsonRpcProvider('http://localhost:7545');  // Ganache default RPC URL
-        const balance = await provider.getBalance(ganacheAccountAddress); // Fetch balance using the address
-        const ethBalance = ethers.formatEther(balance); // Convert balance from Wei to Ether
-        setEthBalance(parseFloat(ethBalance));
-      } catch (error) {
-        console.error("Error fetching balance:", error);
-        setEthBalance(0); // Set balance to 0 if there's an error
-      } finally {
-        setLoading(false); // Stop loading once balance is fetched
-      }
-    };
-
-    fetchBalance();
-  }, []);  // Empty dependency array so it runs once on component mount
+  // Handle navigation to Trading page for Buy/Sell actions
+  const handleTransactionClick = () => {
+    navigate('/trading');
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
-<<<<<<< HEAD
       <nav className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
@@ -177,6 +174,19 @@ const Dashboard: React.FC = () => {
       </nav>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Balance and Trading Button Section */}
+        <div className="flex justify-between items-center mb-8">
+          <div className="bg-white p-6 rounded-xl shadow-sm flex-1 mr-4">
+            <h3 className="text-lg font-semibold text-gray-900">Ethereum Balance</h3>
+            <p className="text-2xl font-semibold text-gray-900 mt-1">
+              {loading ? "Loading..." : ethBalance.toFixed(4)} ETH
+            </p>
+          </div>
+          <Button variant="default" onClick={handleTransactionClick} className="h-12">
+            Go to Trading
+          </Button>
+        </div>
+
         <div className="md:flex md:items-center md:justify-between mb-8">
           <div className="flex-1 min-w-0">
             <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl">
@@ -185,12 +195,6 @@ const Dashboard: React.FC = () => {
             <p className="mt-1 text-sm text-gray-500">
               Real-time carbon prices across global markets
             </p>
-          </div>
-          <div className="mt-4 md:mt-0">
-            <p className="text-lg font-semibold text-gray-900">Balance: ${balance.toFixed(2)}</p>
-            <Button variant="default" onClick={handleTransactionClick} className="mt-2">
-              Go to Trading
-            </Button>
           </div>
         </div>
 
@@ -231,15 +235,6 @@ const Dashboard: React.FC = () => {
               </div>
             ))}
           </div>
-=======
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Carbon Credit Balance */}
-        <div className="bg-white p-6 rounded-xl shadow-sm">
-          <h3 className="text-sm font-medium text-gray-500">Carbon Credit Balance</h3>
-          <p className="text-2xl font-semibold text-gray-900 mt-1">
-            {loading ? "Loading..." : ethBalance} Credits
-          </p>
->>>>>>> ee828d9dfdd8b6b65a34d490b539ee6b2b0b0e03
         </div>
       </main>
     </div>
