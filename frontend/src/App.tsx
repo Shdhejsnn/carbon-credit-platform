@@ -1,16 +1,18 @@
-import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
-import LandingPage from './pages/LandingPage';
-import Dashboard from './pages/Dashboard';
+import { Routes, Route } from "react-router-dom";
+import LandingPage from "./pages/LandingPage";
+import AuthPage from "./pages/AuthPage";
+import Dashboard from "./pages/Dashboard";
 
-function App() {
+const App = () => {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
-      <Route path="/dashboard" element={<Dashboard />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="/auth" element={<AuthPage onClose={function (): void {
+              throw new Error("Function not implemented.");
+          } } />} />
+      <Route path="/Dashboard" element={<Dashboard />} />
     </Routes>
   );
-}
+};
 
 export default App;
