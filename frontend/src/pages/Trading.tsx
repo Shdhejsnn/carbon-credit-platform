@@ -67,10 +67,8 @@ const Trading: React.FC = () => {
         await txResponse.wait(); // Wait for the transaction to be mined
         console.log("Transaction mined successfully.");
 
-        // Fetch updated balance after the transaction
-        const newBalance = await provider.getBalance(ganacheAccountAddress);
-        const updatedEthBalance = ethers.formatEther(newBalance);
-        setEthBalance(parseFloat(updatedEthBalance));
+        // Update balance after the transaction
+        setEthBalance(prevBalance => prevBalance - amountInEther); // Decrease balance by the amount bought
 
       } catch (error) {
         console.error("Error processing buy transaction:", error);
@@ -97,10 +95,8 @@ const Trading: React.FC = () => {
         await txResponse.wait(); // Wait for the transaction to be mined
         console.log("Transaction mined successfully.");
 
-        // Fetch updated balance after the transaction
-        const newBalance = await provider.getBalance(ganacheAccountAddress);
-        const updatedEthBalance = ethers.formatEther(newBalance);
-        setEthBalance(parseFloat(updatedEthBalance));
+        // Update balance after the transaction
+        setEthBalance(prevBalance => prevBalance + amountInEther); // Increase balance by the amount sold
 
       } catch (error) {
         console.error("Error processing sell transaction:", error);
