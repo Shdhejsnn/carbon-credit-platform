@@ -1,47 +1,48 @@
 const express = require("express");
 const admin = require("firebase-admin");
-const cors = require("cors");
 const dotenv = require("dotenv");
 
-dotenv.config(); // Load environment variables
+// Load environment variables
+dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-
-// Middleware
-app.use(cors());
 app.use(express.json());
 
-// Parse the service account key from the environment variable
-const serviceAccount = JSON.parse(process.env.SERVICE_ACCOUNT_KEY);
-
-// Initialize Firebase Admin SDK
+// Initialize Firebase Admin
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
+  credential: admin.credential.cert(require(process.env.FIREBASE_CREDENTIALS))
 });
 
-// Route to verify Firebase ID Token
-app.post("/verify-token", async (req, res) => {
-  const { token } = req.body;
+// Firebase Auth instance
+const auth = admin.auth();
+
+// Middleware to verify Firebase token
+const verifyToken = async (req, res, next) => {
+  const token = req.headers.authorization?.split(" ")[1];
 
   if (!token) {
-    return res.status(400).json({ error: "Token is required" });
+    return res.status(401).json({ message: "Unauthorized - No token provided" });
   }
 
   try {
-    // Verify the token
-    const decodedToken = await admin.auth().verifyIdToken(token);
-    console.log("Decoded Token:", decodedToken);
-
-    const { uid, email } = decodedToken;
-
-    res.status(200).json({ message: "Token verified successfully", uid, email });
+    const decodedToken = await auth.verifyIdToken(token);
+    req.user = decodedToken;
+    next();
   } catch (error) {
-    console.error("Token verification error:", error);
-    res.status(401).json({ error: "Unauthorized" });
+    res.status(403).json({ message: "Invalid or expired token" });
   }
+};
+
+// Protected route example
+app.get("/protected", verifyToken, (req, res) => {
+  res.json({ message: "Access granted!", user: req.user });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+// Root route
+app.get("/", (req, res) => {
+  res.send("Firebase Auth Backend is running!");
 });
+
+// Start server
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

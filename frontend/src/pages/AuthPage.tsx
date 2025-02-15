@@ -1,30 +1,44 @@
-// AuthPage.tsx
 import React, { useState } from 'react';
 import { Button } from '../components/Button';
 import { X } from 'lucide-react';
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
+import { useNavigate } from 'react-router-dom';
+import { auth } from '../pages/firebaseConfig';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
 
 interface AuthPageProps {
-  onClose: () => void; // Define the onClose prop type
+  onClose: () => void;
 }
 
 const AuthPage: React.FC<AuthPageProps> = ({ onClose }) => {
   const [isLogin, setIsLogin] = useState(true);
-  const navigate = useNavigate(); // Initialize useNavigate
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle login logic here
-    console.log("Logging in...");
-    onClose(); // Close modal after login
-    navigate('/dashboard'); // Navigate to Dashboard after login
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      console.log("Login successful!");
+      onClose();
+      navigate('/dashboard'); 
+    } catch (error) {
+      console.error("Login error:", error);
+      alert("Invalid email or password");
+    }
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle registration logic here
-    console.log("Registering...");
-    onClose(); // Close modal after registration
+    try {
+      await createUserWithEmailAndPassword(auth, email, password);
+      console.log("Registration successful!");
+      onClose();
+      navigate('/dashboard'); 
+    } catch (error) {
+      console.error("Registration error:", error);
+      alert("Registration failed");
+    }
   };
 
   return (
@@ -52,6 +66,8 @@ const AuthPage: React.FC<AuthPageProps> = ({ onClose }) => {
             <input
               type="email"
               id="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               required
             />
@@ -63,36 +79,12 @@ const AuthPage: React.FC<AuthPageProps> = ({ onClose }) => {
             <input
               type="password"
               id="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               required
             />
           </div>
-          {!isLogin && (
-            <>
-              <div>
-                <label htmlFor="companyName" className="block text-sm font-medium text-gray-700 mb-1">
-                  Company Name *
-                </label>
-                <input
-                  type="text"
-                  id="companyName"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="registrationNumber" className="block text-sm font-medium text-gray-700 mb-1">
-                  Registration Number *
-                </label>
-                <input
-                  type="text"
-                  id="registrationNumber"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  required
-                />
-              </div>
-            </>
-          )}
           <Button type="submit" className="w-full" size="lg">
             {isLogin ? 'Sign In' : 'Register'}
           </Button>
@@ -102,7 +94,8 @@ const AuthPage: React.FC<AuthPageProps> = ({ onClose }) => {
               type="button"
               className="text-primary-600 hover:text-primary-700 font-medium"
               onClick={() => setIsLogin(!isLogin)}
-            >              {isLogin ? 'Register now' : 'Login here'}
+            >
+              {isLogin ? 'Register now' : 'Login here'}
             </button>
           </p>
         </form>
