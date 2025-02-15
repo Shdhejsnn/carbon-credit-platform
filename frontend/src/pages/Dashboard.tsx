@@ -1,58 +1,10 @@
-// Dashboard.tsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ethers } from 'ethers';
-import { motion } from 'framer-motion';
-import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../constants/contract'; 
-
-import {
-  LineChart as LineChartIcon,
-  ArrowUpRight,
-  ArrowDownRight,
-  Globe,
-  Plane,
-  Activity,
-  LogOut,
-} from 'lucide-react';
+import { Activity, ArrowDownRight, ArrowUpRight, Globe, LineChartIcon, LogOut, Plane } from 'lucide-react';
 import { Button } from '../components/Button';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
 import { MarketPrice } from './types';
 import { initializeMarketPrices, getUpdatedPrices } from './marketData';
-
-// Carbon Prices Widget
-const CarbonPricesWidget: React.FC = () => {
-  const [carbonPrices, setCarbonPrices] = useState<string>("Fetching live carbon prices...");
-
-  useEffect(() => {
-    fetch("https://carboncredits.com/carbon-prices-today/", { mode: "cors" })
-      .then((response) => response.json())
-      .then((data) => {
-        if (data.prices) {
-          setCarbonPrices(data.prices);
-        } else {
-          setCarbonPrices("⚠️ Unable to fetch live prices.");
-        }
-      })
-      .catch((error) => {
-        console.error("Fetch error:", error);
-        setCarbonPrices("⚠️ Error fetching prices.");
-      });
-  }, []);
-
-  return (
-    <div id="carbon-prices" className="bg-white p-6 rounded-xl shadow-sm">
-      <p className="text-gray-700 text-sm">{carbonPrices}</p>
-    </div>
-  );
-};
 
 // Main Dashboard Component
 const Dashboard: React.FC = () => {
@@ -87,24 +39,6 @@ const Dashboard: React.FC = () => {
     fetchBalance();
   }, []);
 
-  useEffect(() => {
-    const fetchCompanyDetails = async () => {
-      try {
-        const provider = new ethers.JsonRpcProvider('http://localhost:7545'); // Connect to Ganache
-        const signer = new ethers.Wallet(ganacheAccountPrivateKey, provider);
-        const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer); // Create contract instance
-
-        const company = await contract.companies(companyId); // Replace with actual function to fetch company details
-        setCompanyDetails(company);
-      } catch (error) {
-        console.error("Error fetching company details:", error);
-        setCompanyDetails(null);
-      }
-    };
-
-    if (companyId) fetchCompanyDetails();
-  }, [companyId]);
-
   // Fetch live price updates
   useEffect(() => {
     const interval = setInterval(() => {
@@ -116,79 +50,9 @@ const Dashboard: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const MarketCard = ({ market, prices }: { market: string, prices: MarketPrice[] }) => (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden">
-      <div className="p-4 bg-gray-50 border-b border-gray-200">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            {market === 'Compliance Markets' ? <Globe className="h-5 w-5 text-blue-600" /> : <Plane className="h-5 w-5 text-green-600" />}
-            <h3 className="text-lg font-semibold text-gray-900">{market}</h3>
-          </div>
-          <div className="flex items-center space-x-2">
-            <span className="px-2.5 py-0.5 text-sm font-medium rounded-full bg-green-100 text-green-800">
-              Live
-            </span>
-            <LineChartIcon className="h-4 w-4 text-gray-400" />
-          </div>
-        </div>
-      </div>
-      <div className="divide-y divide-gray-200">
-        {prices.map((price, index) => (
-          <div key={index} className="p-4 hover:bg-gray-50 transition-colors">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-900">{price.market}</span>
-              <div className="flex items-center space-x-4">
-                <span className="text-lg font-semibold text-gray-900">
-                  {price.currency}{price.price.toFixed(2)}
-                </span>
-                <div className={`flex items-center ${
-                  price.change > 0 ? 'text-green-600' : price.change < 0 ? 'text-red-600' : 'text-gray-600'
-                }`}>
-                  {price.change !== 0 && (
-                    price.change > 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />
-                  )}
-                  <span className="text-sm font-medium">
-                    {price.change > 0 ? '+' : ''}{price.change.toFixed(2)}%
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className="mt-2">
-              <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                <div 
-                  className={`h-full transition-all duration-500 ${
-                    price.change > 0 ? 'bg-green-500' : price.change < 0 ? 'bg-red-500' : 'bg-gray-400'
-                  }`}
-                  style={{ width: `${Math.min(Math.abs(price.change), 100)}%` }}
-                ></div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  // Handle navigation to Trading page for Buy/Sell actions
-  const handleTransactionClick = () => {
-    navigate('/trading');
-  };
-
-  const handleFetchCompany = async () => {
-    if (!companyId) {
-      alert("Please enter a company ID.");
-      return;
-    }
-    try {
-      const provider = new ethers.JsonRpcProvider('http://localhost:7545');
-      const signer = new ethers.Wallet(ganacheAccountPrivateKey, provider);
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-
-      const company = await contract.companies(companyId); // Replace with actual function to fetch company details
-      setCompanyDetails(company);
-    } catch (error) {
-      console.error("Error fetching company:", error);
-    }
+  // Handle navigation to GreenScore page
+  const handleGreenScoreClick = () => {
+    navigate('/greenscore');
   };
 
   return (
@@ -200,10 +64,19 @@ const Dashboard: React.FC = () => {
               <Activity className="h-8 w-8 text-green-600" />
               <span className="ml-2 text-xl font-semibold text-gray-900">GreenLedger</span>
             </div>
-            <Button variant="ghost" className="text-gray-600" onClick={() => navigate('/')}>
-              <LogOut className="w-5 h-5 mr-2" />
-              Sign Out
-            </Button>
+            <div className="flex items-center space-x-4">
+              <Button 
+                variant="default" 
+                onClick={handleGreenScoreClick} 
+                className="bg-white text-green-600 border border-green-600 hover:bg-green-600 hover:text-white transition duration-200"
+              >
+                GreenScore
+              </Button>
+              <Button variant="ghost" className="text-gray-600" onClick={() => navigate('/')}>
+                <LogOut className="w-5 h-5 mr-2" />
+                Sign Out
+              </Button>
+            </div>
           </div>
         </div>
       </nav>
@@ -217,7 +90,7 @@ const Dashboard: React.FC = () => {
             onChange={(e) => setCompanyId(e.target.value)}
             className="border rounded-md p-2 text-sm"
           />
-          <Button variant="default" onClick={handleFetchCompany}>Fetch Company</Button>
+          <Button variant="default" onClick={() => {/* Fetch company logic */}}>Fetch Company</Button>
         </div>
 
         {/* Balance and Trading Button Section */}
@@ -244,7 +117,7 @@ const Dashboard: React.FC = () => {
             </div>
           )}
 
-          <Button variant="default" onClick={handleTransactionClick} className="h-12">
+          <Button variant="default" onClick={() => navigate('/trading')} className="h-12">
             Go to Trading
           </Button>
         </div>
@@ -278,5 +151,59 @@ const Dashboard: React.FC = () => {
     </div>
   );
 };
+
+// MarketCard Component
+const MarketCard = ({ market, prices }: { market: string, prices: MarketPrice[] }) => (
+  <div className="bg-white rounded-lg shadow-md overflow-hidden">
+    <div className="p-4 bg-gray-50 border-b border-gray-200">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          {market === 'Compliance Markets' ? <Globe className="h-5 w-5 text-blue-600" /> : <Plane className="h-5 w-5 text-green-600" />}
+          <h3 className="text-lg font-semibold text-gray-900">{market}</h3>
+        </div>
+        <div className="flex items-center space-x-2">
+          <span className="px-2.5 py-0.5 text-sm font-medium rounded-full bg-green-100 text-green-800">
+            Live
+          </span>
+          <LineChartIcon className="h-4 w-4 text-gray-400" />
+        </div>
+      </div>
+    </div>
+    <div className="divide-y divide-gray-200">
+      {prices.map((price, index) => (
+        <div key={index} className="p-4 hover:bg-gray-50 transition-colors">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-gray-900">{price.market}</span>
+            <div className="flex items-center space-x-4">
+              <span className="text-lg font-semibold text-gray-900">
+                {price.currency}{price.price.toFixed(2)}
+              </span>
+              <div className={`flex items-center ${
+                price.change > 0 ? 'text-green-600' : price.change < 0 ? 'text-red-600' : 'text-gray-600'
+              }`}>
+                {price.change !== 0 && (
+                  price.change > 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />
+                )}
+                <span className="text-sm font-medium">
+                  {price.change > 0 ? '+' : ''}{price.change.toFixed(2)}%
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="mt-2">
+            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div 
+                className={`h-full transition-all duration-500 ${
+                  price.change > 0 ? 'bg-green-500' : price.change < 0 ? 'bg-red-500' : 'bg-gray-400'
+                }`}
+                style={{ width: `${Math.min(Math.abs(price.change), 100)}%` }}
+              ></div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
 
 export default Dashboard;
