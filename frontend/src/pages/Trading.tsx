@@ -1,21 +1,12 @@
-// Trading.tsx
 import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { LineChart } from 'lucide-react';
+import { Globe, Plane, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { MarketPrice, initializeMarketPrices, getUpdatedPrices } from './marketData'; // Import market data functions
 import { useNavigate } from 'react-router-dom'; // Import useNavigate for navigation
 
 // Define the type for conversion rates, allowing an empty string
 type ConversionRateKey = '' | 'European Union' | 'UK' | 'Australia' | 'New Zealand' | 'South Korea' | 'China';
-
-interface Transaction {
-  type: 'buy' | 'sell';
-  amount: number;
-  price: number;
-  total: number;
-  status: string;
-  date: string;
-}
 
 const Trading: React.FC = () => {
   const navigate = useNavigate(); // Initialize useNavigate
@@ -28,10 +19,15 @@ const Trading: React.FC = () => {
   const [selectedRegion, setSelectedRegion] = useState<ConversionRateKey>(''); // Allow empty string
   const [marketPrices, setMarketPrices] = useState<MarketPrice[]>(initializeMarketPrices());
   const [convertedPrice, setConvertedPrice] = useState<number>(0); // Price in USD
+  const [lockedPrice, setLockedPrice] = useState<number>(0); // Locked price for 10 seconds
   const [localCurrencyBalance, setLocalCurrencyBalance] = useState<number>(0); // Balance in local currency
   const [usdBalance, setUsdBalance] = useState<number>(0); // Balance in USD
-  const [transactions, setTransactions] = useState<Transaction[]>([]); // State to store transaction history
+  const [buyingLimit, setBuyingLimit] = useState<number>(0); // Buying limit for the selected region
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date()); // Last update time
 
+  // Daily buying limit (initial value)
+  const [dailyBuyingLimit, setDailyBuyingLimit] = useState<number>(100); // Example initial limit
+  const [userDailyPurchases, setUserDailyPurchases] = useState<number>(0); // Track user purchases for the day
   // Live conversion rates based on the provided market prices
   const conversionRates: Record<ConversionRateKey, { rate: number; currency: string }> = {
     'European Union': { rate: 78.60, currency: '€' },
@@ -72,10 +68,26 @@ const Trading: React.FC = () => {
   }, [ganacheAccountAddress]); // Dependency added to refetch when the address changes
 
   useEffect(() => {
-    // Fetch market prices and update the state
-    const updatedPrices = getUpdatedPrices();
-    setMarketPrices(updatedPrices);
+    const interval = setInterval(() => {
+      const updatedPrices = getUpdatedPrices();
+      setMarketPrices(updatedPrices);
+      setLastUpdate(new Date());
+    }, 2000);
+
+    return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    // Update the locked price every 10 seconds
+    const lockPriceInterval = setInterval(() => {
+      setLockedPrice(convertedPrice);
+    }, 10000);
+
+    // Initialize the locked price with the current price
+    setLockedPrice(convertedPrice);
+
+    return () => clearInterval(lockPriceInterval);
+  }, [convertedPrice]);
 
   const calculateConvertedBalances = (ethAmount: number) => {
     const localBalance = ethAmount * (conversionRates[selectedRegion]?.rate || 0); // Use the selected region's rate
@@ -92,8 +104,12 @@ const Trading: React.FC = () => {
     const selectedPrice = marketPrices.find(market => market.market === selectedMarket);
     if (selectedPrice) {
       // Convert the price to USD based on the selected market
-      const conversionRate = selectedPrice.currency === '$' ? 1 : selectedPrice.price; // Adjust based on your conversion logic
+      const conversionRate = selectedPrice.price; // Use the selected market's price as the conversion rate
       setConvertedPrice(conversionRate);
+
+      // Update the buying limit for the selected region
+      const regionLimit = dailyBuyingLimit * conversionRate; // Example logic: limit in local currency
+      setBuyingLimit(regionLimit);
     }
   };
 
@@ -106,16 +122,17 @@ const Trading: React.FC = () => {
       return;
     }
 
-    const provider = new ethers.JsonRpcProvider('http://localhost:7545');
+    // Use the locked price for the transaction
+    const transactionPrice = lockedPrice;
 
-    let newTransaction: Transaction = {
-      type: orderType,
-      amount: parseFloat(amount),
-      price: convertedPrice,
-      total: parseFloat(amount) * convertedPrice,
-      status: 'Pending',
-      date: new Date().toISOString(),
-    };
+    // Check if the purchase exceeds the daily limit
+    const totalPurchase = userDailyPurchases + parseFloat(amount); // Calculate total purchase for the day
+    if (totalPurchase > dailyBuyingLimit) {
+      alert(`You cannot exceed your daily buying limit of ${dailyBuyingLimit} credits.`);
+      return;
+    }
+
+    const provider = new ethers.JsonRpcProvider('http://localhost:7545');
 
     if (orderType === 'buy') {
       try {
@@ -129,15 +146,11 @@ const Trading: React.FC = () => {
 
         await txResponse.wait();
         console.log("Transaction successful.");
-        setEthBalance(prevBalance => prevBalance + parseFloat(amount) / convertedPrice); // Increase balance on buy
-        calculateConvertedBalances(ethBalance + parseFloat(amount) / convertedPrice); // Update converted balances
-
-        newTransaction.status = 'Completed';
-        setTransactions([...transactions, newTransaction]);
+        setEthBalance(prevBalance => prevBalance + parseFloat(amount)); // Increase balance on buy
+        calculateConvertedBalances(ethBalance + parseFloat(amount)); // Update converted balances
+        setUserDailyPurchases(totalPurchase); // Update daily purchases
       } catch (error) {
         console.error("Error processing buy transaction:", error);
-        newTransaction.status = 'Failed';
-        setTransactions([...transactions, newTransaction]);
       }
     } else {
       try {
@@ -151,18 +164,56 @@ const Trading: React.FC = () => {
 
         await txResponse.wait();
         console.log("Sell transaction successful.");
-        setEthBalance(prevBalance => prevBalance - parseFloat(amount) / convertedPrice); // Decrease balance on sell
-        calculateConvertedBalances(ethBalance - parseFloat(amount) / convertedPrice); // Update converted balances
-
-        newTransaction.status = 'Completed';
-        setTransactions([...transactions, newTransaction]);
+        setEthBalance(prevBalance => prevBalance - parseFloat(amount)); // Decrease balance on sell
+        calculateConvertedBalances(ethBalance - parseFloat(amount)); // Update converted balances
       } catch (error) {
         console.error("Error processing sell transaction:", error);
-        newTransaction.status = 'Failed';
-        setTransactions([...transactions, newTransaction]);
       }
     }
   };
+
+  const MarketCard = ({ market, prices }: { market: string, prices: MarketPrice[] }) => (
+    <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      <div className="p-4 bg-gray-50 border-b border-gray-200">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            {market === 'Compliance Markets' ? <Globe className="h-5 w-5 text-blue-600" /> : <Plane className="h-5 w-5 text-green-600" />}
+            <h3 className="text-lg font-semibold text-gray-900">{market}</h3>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className="px-2.5 py-0.5 text-sm font-medium rounded-full bg-green-100 text-green-800">
+              Live
+            </span>
+            <LineChart className="h-4 w-4 text-gray-400" />
+          </div>
+        </div>
+      </div>
+      <div className="divide-y divide-gray-200">
+        {prices.map((price, index) => (
+          <div key={index} className="p-4 hover:bg-gray-50 transition-colors">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-900">{price.market}</span>
+              <div className="flex items-center space-x-4">
+                <span className="text-lg font-semibold text-gray-900">
+                  {price.currency}{price.price.toFixed(2)}
+                </span>
+                <div className={`flex items-center ${
+                  price.change > 0 ? 'text-green-600' : price.change < 0 ? 'text-red-600' : 'text-gray-600'
+                }`}>
+                  {price.change !== 0 && (
+                    price.change > 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />
+                  )}
+                  <span className="text-sm font-medium">
+                    {price.change > 0 ? '+' : ''}{price.change.toFixed(2)}%
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -189,26 +240,10 @@ const Trading: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Market Overview */}
           <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold mb-4">Carbon Credits Market</h2>
-              <div id="carbon-prices" className="w-full">
-                {/* Carbon Prices Widget will be loaded here */}
-              </div>
-            </div>
-
-            {/* Market Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {marketPrices.map((market) => (
-                <div key={market.market} className="bg-white rounded-lg shadow p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <span className="text-sm text-gray-500">{market.market}</span>
-                    </div>
-                    <span className="font-semibold">{market.currency}{market.price.toFixed(2)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <MarketCard
+              market="Compliance Markets"
+              prices={marketPrices.filter(market => market.type === 'compliance')}
+            />
           </div>
 
           {/* Trading Form */}
@@ -239,10 +274,19 @@ const Trading: React.FC = () => {
                   required
                 >
                   <option value="" disabled>Select a region</option>
-                  {marketPrices.map((market) => (
-                    <option key={market.market} value={market.market}>{market.market}</option>
-                  ))}
+                  {marketPrices
+                    .filter(market => market.type === 'compliance')
+                    .map((market) => (
+                      <option key={market.market} value={market.market}>{market.market}</option>
+                    ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Buying Limit for Today</label>
+                <div className="bg-gray-50 px-3 py-2 rounded-lg">
+                  <span className="text-gray-900 font-medium">{`${buyingLimit.toFixed(2)} Credits`}</span>
+                </div>
               </div>
 
               <div>
@@ -262,14 +306,14 @@ const Trading: React.FC = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Price per Credit (USD)</label>
                 <div className="bg-gray-50 px-3 py-2 rounded-lg">
-                  <span className="text-gray-900 font-medium">${convertedPrice.toFixed(2)}</span>
+                  <span className="text-gray-900 font-medium">${lockedPrice.toFixed(2)}</span>
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Total (USD)</label>
                 <div className="bg-gray-50 px-3 py-2 rounded-lg">
-                  <span className="text-gray-900 font-medium">${((Number(amount) || 0) * (convertedPrice || 0)).toFixed(2)}</span>
+                  <span className="text-gray-900 font-medium">${((Number(amount) || 0) * (lockedPrice || 0)).toFixed(2)}</span>
                 </div>
               </div>
 
@@ -303,12 +347,16 @@ const Trading: React.FC = () => {
                 <div className="bg-gray-50 px-3 py-2 rounded-lg">
                   <span>{loading ? 'Loading...' : `${ethBalance.toFixed(4)} ETH`}</span>
                 </div>
-                <div className="bg-gray-50 px-3 py-2 rounded-lg mt-2">
-                  <span>{loading ? 'Loading...' : `${localCurrencyBalance.toFixed(2)} Local Currency`}</span>
-                </div>
-                <div className="bg-gray-50 px-3 py-2 rounded-lg mt-2">
-                  <span>{loading ? 'Loading...' : `$${usdBalance.toFixed(2)} USD`}</span>
-                </div>
+                {localCurrencyBalance > 0 && (
+                  <div className="bg-gray-50 px-3 py-2 rounded-lg mt-2">
+                    <span>{loading ? 'Loading...' : `${localCurrencyBalance.toFixed(2)} Local Currency`}</span>
+                  </div>
+                )}
+                {usdBalance > 0 && (
+                  <div className="bg-gray-50 px-3 py-2 rounded-lg mt-2">
+                    <span>{loading ? 'Loading...' : `$${usdBalance.toFixed(2)} USD`}</span>
+                  </div>
+                )}
               </div>
 
               <button
@@ -345,30 +393,40 @@ const Trading: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {transactions.map((transaction, index) => (
-                  <tr key={index}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${transaction.type === 'buy' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                        {transaction.type === 'buy' ? 'Buy' : 'Sell'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">{transaction.amount} Credits</td>
-                    <td className="px-6 py-4 whitespace-nowrap">${transaction.price.toFixed(2)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">${transaction.total.toFixed(2)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${transaction.status === 'Completed' ? 'bg-blue-100 text-blue-800' : transaction.status === 'Failed' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                        {transaction.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">{new Date(transaction.date).toLocaleString()}</td>
-                  </tr>
-                ))}
+                {/* Example static data for recent orders */}
+                <tr>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                      Buy
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">100 Credits</td>
+                  <td className="px-6 py-4 whitespace-nowrap">$24.50</td>
+                  <td className="px-6 py-4 whitespace-nowrap">$2,450.00</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="px-2 inline-flex text-xs leading-5 font-medium rounded-full bg-blue-100 text-blue-800">
+                      Completed
+                    </span>
+                  </td>
+                </tr>
+                <tr>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                      Sell
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">50 Credits</td>
+                  <td className="px-6 py-4 whitespace-nowrap">$24.75</td>
+                  <td className="px-6 py-4 whitespace-nowrap">$1,237.50</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="px-2 inline-flex text-xs leading-5 font-medium rounded-full bg-blue-100 text-blue-800">
+                      Completed
+                    </span>
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
