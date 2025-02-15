@@ -2,14 +2,23 @@ import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { LineChart } from 'lucide-react';
 import { Globe, Plane, ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import { MarketPrice, initializeMarketPrices, getUpdatedPrices } from './marketData'; // Import market data functions
-import { useNavigate } from 'react-router-dom'; // Import useNavigate for navigation
+import { MarketPrice, initializeMarketPrices, getUpdatedPrices } from './marketData';
+import { useNavigate } from 'react-router-dom';
 
 // Define the type for conversion rates, allowing an empty string
 type ConversionRateKey = '' | 'European Union' | 'UK' | 'Australia' | 'New Zealand' | 'South Korea' | 'China';
 
+interface Transaction {
+  type: 'buy' | 'sell';
+  amount: number;
+  price: number;
+  total: number;
+  status: 'Pending' | 'Completed' | 'Failed';
+  date: string;
+}
+
 const Trading: React.FC = () => {
-  const navigate = useNavigate(); // Initialize useNavigate
+  const navigate = useNavigate();
   const [orderType, setOrderType] = useState<'buy' | 'sell'>('buy');
   const [amount, setAmount] = useState('');
   const [receiverAddress, setReceiverAddress] = useState('');
@@ -24,10 +33,12 @@ const Trading: React.FC = () => {
   const [usdBalance, setUsdBalance] = useState<number>(0); // Balance in USD
   const [buyingLimit, setBuyingLimit] = useState<number>(0); // Buying limit for the selected region
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date()); // Last update time
+  const [transactions, setTransactions] = useState<Transaction[]>([]); // List of transactions
 
   // Daily buying limit (initial value)
   const [dailyBuyingLimit, setDailyBuyingLimit] = useState<number>(100); // Example initial limit
   const [userDailyPurchases, setUserDailyPurchases] = useState<number>(0); // Track user purchases for the day
+
   // Live conversion rates based on the provided market prices
   const conversionRates: Record<ConversionRateKey, { rate: number; currency: string }> = {
     'European Union': { rate: 78.60, currency: '€' },
@@ -134,6 +145,15 @@ const Trading: React.FC = () => {
 
     const provider = new ethers.JsonRpcProvider('http://localhost:7545');
 
+    let newTransaction: Transaction = {
+      type: orderType,
+      amount: parseFloat(amount),
+      price: transactionPrice,
+      total: parseFloat(amount) * transactionPrice,
+      status: 'Pending',
+      date: new Date().toISOString(),
+    };
+
     if (orderType === 'buy') {
       try {
         const receiverWallet = new ethers.Wallet(receiverPrivateKey, provider);
@@ -149,8 +169,13 @@ const Trading: React.FC = () => {
         setEthBalance(prevBalance => prevBalance + parseFloat(amount)); // Increase balance on buy
         calculateConvertedBalances(ethBalance + parseFloat(amount)); // Update converted balances
         setUserDailyPurchases(totalPurchase); // Update daily purchases
+
+        newTransaction.status = 'Completed';
+        setTransactions([...transactions, newTransaction]);
       } catch (error) {
         console.error("Error processing buy transaction:", error);
+        newTransaction.status = 'Failed';
+        setTransactions([...transactions, newTransaction]);
       }
     } else {
       try {
@@ -166,8 +191,13 @@ const Trading: React.FC = () => {
         console.log("Sell transaction successful.");
         setEthBalance(prevBalance => prevBalance - parseFloat(amount)); // Decrease balance on sell
         calculateConvertedBalances(ethBalance - parseFloat(amount)); // Update converted balances
+
+        newTransaction.status = 'Completed';
+        setTransactions([...transactions, newTransaction]);
       } catch (error) {
         console.error("Error processing sell transaction:", error);
+        newTransaction.status = 'Failed';
+        setTransactions([...transactions, newTransaction]);
       }
     }
   };
@@ -393,40 +423,30 @@ const Trading: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {/* Example static data for recent orders */}
-                <tr>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                      Buy
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">100 Credits</td>
-                  <td className="px-6 py-4 whitespace-nowrap">$24.50</td>
-                  <td className="px-6 py-4 whitespace-nowrap">$2,450.00</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 inline-flex text-xs leading-5 font-medium rounded-full bg-blue-100 text-blue-800">
-                      Completed
-                    </span>
-                  </td>
-                </tr>
-                <tr>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                      Sell
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">50 Credits</td>
-                  <td className="px-6 py-4 whitespace-nowrap">$24.75</td>
-                  <td className="px-6 py-4 whitespace-nowrap">$1,237.50</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 inline-flex text-xs leading-5 font-medium rounded-full bg-blue-100 text-blue-800">
-                      Completed
-                    </span>
-                  </td>
-                </tr>
+                {transactions.map((transaction, index) => (
+                  <tr key={index}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${transaction.type === 'buy' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                        {transaction.type === 'buy' ? 'Buy' : 'Sell'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">{transaction.amount} Credits</td>
+                    <td className="px-6 py-4 whitespace-nowrap">${transaction.price.toFixed(2)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">${transaction.total.toFixed(2)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-medium rounded-full ${transaction.status === 'Completed' ? 'bg-blue-100 text-blue-800' : transaction.status === 'Failed' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                        {transaction.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">{new Date(transaction.date).toLocaleString()}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
