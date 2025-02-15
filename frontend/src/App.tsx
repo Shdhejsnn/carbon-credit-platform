@@ -4,6 +4,7 @@ import AuthPage from "./pages/AuthPage";
 import Dashboard from "./pages/Dashboard";
 import Trading from "./pages/Trading";  // Add this import for Trading
 import Profile from "./pages/Profile"; // Import the Profile component
+import GreenScore from "./pages/GreenScore"; // Import the GreenScore component
 
 const App = () => {
   return (
@@ -13,6 +14,7 @@ const App = () => {
       <Route path="/dashboard" element={<Dashboard />} /> {/* Ensure the path is lowercase */}
       <Route path="/trading" element={<Trading />} /> {/* Add the Trading route */}
       <Route path="/profile" element={<Profile />} /> {/* Add the Profile route */}
+      <Route path="/greenscore" element={<GreenScore />} /> {/* Add the GreenScore route */}
     </Routes>
   );
 };
