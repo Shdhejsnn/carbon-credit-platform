@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   LineChart as LineChartIcon,
-  Wallet,
   ArrowUpRight,
   ArrowDownRight,
+  Globe,
+  Plane,
+  Activity,
   Leaf,
   LogOut,
 } from 'lucide-react';
@@ -19,28 +21,10 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { MarketPrice, Transaction } from './types';
+import { initializeMarketPrices, getUpdatedPrices } from './marketData';
 
-// Mock Data for Dashboard
-const mockData = {
-  balance: 150,
-  marketPrice: 25.50,
-  priceChange: 2.3,
-  transactions: [
-    { id: 1, type: 'buy', amount: 50, price: 24.80, date: '2024-03-15' },
-    { id: 2, type: 'sell', amount: 20, price: 25.30, date: '2024-03-14' },
-    { id: 3, type: 'buy', amount: 30, price: 25.10, date: '2024-03-13' },
-  ],
-  priceHistory: [
-    { date: '2024-03-10', price: 24.20 },
-    { date: '2024-03-11', price: 24.50 },
-    { date: '2024-03-12', price: 24.80 },
-    { date: '2024-03-13', price: 25.10 },
-    { date: '2024-03-14', price: 25.30 },
-    { date: '2024-03-15', price: 25.50 },
-  ],
-};
-
-// ✅ Fetch live carbon prices instead of using an external script
+// Carbon Prices Widget
 const CarbonPricesWidget: React.FC = () => {
   const [carbonPrices, setCarbonPrices] = useState<string>("Fetching live carbon prices...");
 
@@ -48,7 +32,6 @@ const CarbonPricesWidget: React.FC = () => {
     fetch("http://localhost:5000/api/carbon-prices", { mode: "cors" })
       .then((response) => response.json())
       .then((data) => {
-        console.log("Fetched data:", data); // Debugging line
         if (data.prices) {
           setCarbonPrices(data.prices);
         } else {
@@ -60,7 +43,6 @@ const CarbonPricesWidget: React.FC = () => {
         setCarbonPrices("⚠️ Error fetching prices.");
       });
   }, []);
-  
 
   return (
     <div id="carbon-prices" className="bg-white p-6 rounded-xl shadow-sm">
@@ -69,8 +51,81 @@ const CarbonPricesWidget: React.FC = () => {
   );
 };
 
+// Main Dashboard Component
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
+  const [marketPrices, setMarketPrices] = useState<MarketPrice[]>(initializeMarketPrices());
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [transactions, setTransactions] = useState<Transaction[]>([
+    { id: 1, type: 'buy', amount: 50, price: 24.80, date: '2024-03-15' },
+    { id: 2, type: 'sell', amount: 20, price: 25.30, date: '2024-03-14' },
+    { id: 3, type: 'buy', amount: 30, price: 25.10, date: '2024-03-13' },
+  ]);
+  const [balance, setBalance] = useState<number>(150); // User's balance
+
+  // Fetch live price updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const updatedPrices = getUpdatedPrices();
+      setMarketPrices(updatedPrices);
+      setLastUpdate(new Date());
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const MarketCard = ({ market, prices }: { market: string, prices: MarketPrice[] }) => (
+    <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      <div className="p-4 bg-gray-50 border-b border-gray-200">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            {market === 'Compliance Markets' ? <Globe className="h-5 w-5 text-blue-600" /> : <Plane className="h-5 w-5 text-green-600" />}
+            <h3 className="text-lg font-semibold text-gray-900">{market}</h3>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className="px-2.5 py-0.5 text-sm font-medium rounded-full bg-green-100 text-green-800">
+              Live
+            </span>
+            <LineChartIcon className="h-4 w-4 text-gray-400" />
+          </div>
+        </div>
+      </div>
+      <div className="divide-y divide-gray-200">
+        {prices.map((price, index) => (
+          <div key={index} className="p-4 hover:bg-gray-50 transition-colors">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-900">{price.market}</span>
+              <div className="flex items-center space-x-4">
+                <span className="text-lg font-semibold text-gray-900">
+                  {price.currency}{price.price.toFixed(2)}
+                </span>
+                <div className={`flex items-center ${
+                  price.change > 0 ? 'text-green-600' : price.change < 0 ? 'text-red-600' : 'text-gray-600'
+                }`}>
+                  {price.change !== 0 && (
+                    price.change > 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />
+                  )}
+                  <span className="text-sm font-medium">
+                    {price.change > 0 ? '+' : ''}{price.change.toFixed(2)}%
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="mt-2">
+              <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full transition-all duration-500 ${
+                    price.change > 0 ? 'bg-green-500' : price.change < 0 ? 'bg-red-500' : 'bg-gray-400'
+                  }`}
+                  style={{ width: `${Math.min(Math.abs(price.change), 100)}%` }}
+                ></div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 
   // Handle navigation to Trading page for Buy/Sell actions
   const handleTransactionClick = () => {
@@ -79,19 +134,12 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Security Meta Tag for Mixed Content Fix */}
-      <meta httpEquiv="Content-Security-Policy" content="upgrade-insecure-requests" />
-
-      {/* Force Favicon to Use HTTPS */}
-      <link rel="icon" type="image/png" href="https://carboncredits.com/favicon.ico" />
-
-      {/* Navigation Bar */}
-      <nav className="bg-white border-b border-gray-200">
+      <nav className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center space-x-2">
-              <Leaf className="w-8 h-8 text-primary-600" />
-              <span className="text-xl font-semibold text-gray-900">GreenLedger</span>
+            <div className="flex items-center">
+              <Activity className="h-8 w-8 text-green-600" />
+              <span className="ml-2 text-xl font-semibold text-gray-900">GreenLedger</span>
             </div>
             <Button variant="ghost" className="text-gray-600" onClick={() => navigate('/')}>
               <LogOut className="w-5 h-5 mr-2" />
@@ -101,88 +149,60 @@ const Dashboard: React.FC = () => {
         </div>
       </nav>
 
-      {/* Dashboard Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {/* Carbon Credit Balance */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white p-6 rounded-xl shadow-sm"
-          >
-            <h3 className="text-sm font-medium text-gray-500">Carbon Credit Balance</h3>
-            <p className="text-2xl font-semibold text-gray-900 mt-1">{mockData.balance} Credits</p>
-          </motion.div>
-
-          {/* Live Market Price */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="bg-white p-6 rounded-xl shadow-sm"
-          >
-            <h3 className="text-sm font-medium text-gray-500">Live Market Price</h3>
-            <div className="flex items-center mt-1">
-              <p className="text-2xl font-semibold text-gray-900">${mockData.marketPrice}</p>
-              <span className="ml-2 flex items-center text-green-600 text-sm">
-                <ArrowUpRight className="w-4 h-4" />
-                {mockData.priceChange}%
-              </span>
-            </div>
-          </motion.div>
-
-          {/* Carbon Prices Widget */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="bg-white p-6 rounded-xl shadow-sm lg:col-span-2"
-          >
-            <h3 className="text-sm font-medium text-gray-500 mb-4">Live Carbon Prices</h3>
-            <CarbonPricesWidget />
-          </motion.div>
+        <div className="md:flex md:items-center md:justify-between mb-8">
+          <div className="flex-1 min-w-0">
+            <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl">
+              Carbon Markets Dashboard
+            </h2>
+            <p className="mt-1 text-sm text-gray-500">
+              Real-time carbon prices across global markets
+            </p>
+          </div>
+          <div className="mt-4 md:mt-0">
+            <p className="text-lg font-semibold text-gray-900">Balance: ${balance.toFixed(2)}</p>
+            <Button variant="default" onClick={handleTransactionClick} className="mt-2">
+              Go to Trading
+            </Button>
+          </div>
         </div>
 
-        {/* Graph & Transaction History */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Price History Chart */}
-          <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm">
-            <h3 className="text-lg font-semibold text-gray-900 mb-6">Price History</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={mockData.priceHistory}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip />
-                <Line type="monotone" dataKey="price" stroke="#16a34a" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <MarketCard 
+            market="Compliance Markets" 
+            prices={marketPrices.filter(p => p.type === 'compliance')} 
+          />
+          <MarketCard 
+            market="Voluntary Markets" 
+            prices={marketPrices.filter(p => p.type === 'voluntary')} 
+          />
+        </div>
 
-          {/* Transaction History */}
-          <div className="bg-white p-6 rounded-xl shadow-sm">
-            <h3 className="text-lg font-semibold text-gray-900 mb-6">Recent Transactions</h3>
-            <div className="space-y-4">
-              {mockData.transactions.map((transaction) => (
-                <div key={transaction.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                  <div className="flex items-center">
-                    <div className={`p-2 rounded-lg ${transaction.type === 'buy' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
-                      {transaction.type === 'buy' ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
-                    </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-900">{transaction.type === 'buy' ? 'Bought' : 'Sold'} {transaction.amount} Credits</p>
-                      <p className="text-sm text-gray-500">{transaction.date}</p>
-                    </div>
+        <div className="mt-6 text-sm text-gray-500 text-center">
+          Last updated: {lastUpdate.toLocaleTimeString()}
+        </div>
+
+        {/* Recent Transactions */}
+        <div className="bg-white p-6 rounded-xl shadow-sm mt-8">
+          <h3 className="text-lg font-semibold text-gray-900 mb-6">Recent Transactions</h3>
+          <div className="space-y-4">
+            {transactions.map((transaction) => (
+              <div key={transaction.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center">
+                  <div className={`p-2 rounded-lg ${transaction.type === 'buy' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                    {transaction.type === 'buy' ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
                   </div>
-                  <p className="text-sm font-medium text-gray-900">${transaction.price}</p>
-                  {/* Adding Buy/Sell navigation */}
-                  <Button variant="default" onClick={handleTransactionClick}>
-  {transaction.type === 'buy' ? 'Buy More' : 'Sell More'}
-</Button>
-
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-900">{transaction.type === 'buy' ? 'Bought' : 'Sold'} {transaction.amount} Credits</p>
+                    <p className="text-sm text-gray-500">{transaction.date}</p>
+                  </div>
                 </div>
-              ))}
-            </div>
+                <p className="text-sm font-medium text-gray-900">${transaction.price}</p>
+                <Button variant="default" onClick={handleTransactionClick}>
+                  {transaction.type === 'buy' ? 'Buy More' : 'Sell More'}
+                </Button>
+              </div>
+            ))}
           </div>
         </div>
       </main>
