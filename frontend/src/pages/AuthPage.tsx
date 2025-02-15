@@ -4,6 +4,8 @@ import { X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../pages/firebaseConfig';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
+import { ethers } from 'ethers';
+import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../constants/contract';
 
 interface AuthPageProps {
   onClose: () => void;
@@ -13,6 +15,11 @@ const AuthPage: React.FC<AuthPageProps> = ({ onClose }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [companyAddress, setCompanyAddress] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [companySize, setCompanySize] = useState(0);
+  const [companyIndustry, setCompanyIndustry] = useState("");
+  const [companyLocation, setCompanyLocation] = useState("");
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -33,9 +40,45 @@ const AuthPage: React.FC<AuthPageProps> = ({ onClose }) => {
     try {
       await createUserWithEmailAndPassword(auth, email, password);
       console.log("Registration successful!");
-      onClose();
-      navigate('/dashboard'); 
+
+      // Directly use the private key and other details
+      const provider = new ethers.JsonRpcProvider('http://localhost:7545');
+      const signer = new ethers.Wallet('0x9239c6a1b08530165994e3c25520043f7e2293ca590c759f71a93ad28f2a8574', provider); // Replace with your actual private key
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+
+      const tx = await contract.registerCompany(
+        companyAddress,
+        companyName,
+        companySize,
+        companyIndustry,
+        companyLocation
+      );
+      const receipt = await tx.wait();
+
+      if (receipt.status === 0) {
+        console.error("Transaction reverted");
+        alert("Transaction reverted");
+        return;
+      }
+
+      // Confirm registration by querying the contract
+      const registeredCompany = await contract.companies(companyAddress);
+      if (registeredCompany.exists) {
+        console.log("Company registered on the smart contract!");
+        alert("Company registered successfully!");
+        onClose();
+        navigate('/dashboard'); 
+      } else {
+        console.error("Company registration failed");
+        alert("Company registration failed");
+      }
     } catch (error) {
+      if (error && typeof error === "object" && "code" in error) {
+        if (error.code === "auth/email-already-in-use") {
+          alert("The email address is already in use by another account.");
+          return;
+        }
+      }
       console.error("Registration error:", error);
       alert("Registration failed");
     }
@@ -85,6 +128,81 @@ const AuthPage: React.FC<AuthPageProps> = ({ onClose }) => {
               required
             />
           </div>
+          {!isLogin && (
+            <div>
+              <label htmlFor="companyAddress" className="block text-sm font-medium text-gray-700 mb-1">
+                Company Address *
+              </label>
+              <input
+                type="text"
+                id="companyAddress"
+                value={companyAddress}
+                onChange={(e) => setCompanyAddress(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                required
+              />
+            </div>
+          )}
+          {!isLogin && (
+            <div>
+              <label htmlFor="companyName" className="block text-sm font-medium text-gray-700 mb-1">
+                Company Name *
+              </label>
+              <input
+                type="text"
+                id="companyName"
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                required
+              />
+            </div>
+          )}
+          {!isLogin && (
+            <div>
+              <label htmlFor="companySize" className="block text-sm font-medium text-gray-700 mb-1">
+                Company Size (number of employees) *
+              </label>
+              <input
+                type="number"
+                id="companySize"
+                value={companySize}
+                onChange={(e) => setCompanySize(parseInt(e.target.value, 10))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                required
+              />
+            </div>
+          )}
+          {!isLogin && (
+            <div>
+              <label htmlFor="companyIndustry" className="block text-sm font-medium text-gray-700 mb-1">
+                Company Industry *
+              </label>
+              <input
+                type="text"
+                id="companyIndustry"
+                value={companyIndustry}
+                onChange={(e) => setCompanyIndustry(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                required
+              />
+            </div>
+          )}
+          {!isLogin && (
+            <div>
+              <label htmlFor="companyLocation" className="block text-sm font-medium text-gray-700 mb-1">
+                Company Location (Urban/Rural) *
+              </label>
+              <input
+                type="text"
+                id="companyLocation"
+                value={companyLocation}
+                onChange={(e) => setCompanyLocation(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                required
+              />
+            </div>
+          )}
           <Button type="submit" className="w-full" size="lg">
             {isLogin ? 'Sign In' : 'Register'}
           </Button>

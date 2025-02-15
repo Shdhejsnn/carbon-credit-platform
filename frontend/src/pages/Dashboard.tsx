@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ethers } from 'ethers';
 import { motion } from 'framer-motion';
+import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../constants/contract'; // Correct import
+
 import {
   LineChart as LineChartIcon,
   ArrowUpRight,
@@ -29,7 +31,7 @@ const CarbonPricesWidget: React.FC = () => {
   const [carbonPrices, setCarbonPrices] = useState<string>("Fetching live carbon prices...");
 
   useEffect(() => {
-    fetch("http://localhost:5000/api/carbon-prices", { mode: "cors" })
+    fetch("https://carboncredits.com/carbon-prices-today/", { mode: "cors" })
       .then((response) => response.json())
       .then((data) => {
         if (data.prices) {
@@ -63,6 +65,8 @@ const Dashboard: React.FC = () => {
   ]);
   const [ethBalance, setEthBalance] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
+  const [companyDetails, setCompanyDetails] = useState<any>(null);
+  const [companyId, setCompanyId] = useState<string>('');
 
   // Replace with your own Ganache account details (address and private key)
   const ganacheAccountAddress = '0x43dB9f1C54b380e00Cd7F621Cf172518FC184a47'; // Replace with your Ganache address
@@ -86,6 +90,24 @@ const Dashboard: React.FC = () => {
 
     fetchBalance();
   }, []); // Empty dependency array so it runs once on component mount
+
+  useEffect(() => {
+    const fetchCompanyDetails = async () => {
+      try {
+        const provider = new ethers.JsonRpcProvider('http://localhost:7545'); // Connect to Ganache
+        const signer = new ethers.Wallet(ganacheAccountPrivateKey, provider);
+        const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer); // Create contract instance
+
+        const company = await contract.companies(companyId); // Replace with actual function to fetch company details
+        setCompanyDetails(company);
+      } catch (error) {
+        console.error("Error fetching company details:", error);
+        setCompanyDetails(null);
+      }
+    };
+
+    if (companyId) fetchCompanyDetails();
+  }, [companyId]); // Runs when companyId is set
 
   // Fetch live price updates
   useEffect(() => {
@@ -156,6 +178,23 @@ const Dashboard: React.FC = () => {
     navigate('/trading');
   };
 
+  const handleFetchCompany = async () => {
+    if (!companyId) {
+      alert("Please enter a company ID.");
+      return;
+    }
+    try {
+      const provider = new ethers.JsonRpcProvider('http://localhost:7545');
+      const signer = new ethers.Wallet(ganacheAccountPrivateKey, provider);
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+
+      const company = await contract.companies(companyId); // Replace with actual function to fetch company details
+      setCompanyDetails(company);
+    } catch (error) {
+      console.error("Error fetching company:", error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white shadow-sm">
@@ -172,8 +211,19 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       </nav>
-
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Company ID Input and Fetch Button */}
+        <div className="flex items-center space-x-4 mb-6">
+          <input 
+            type="text"
+            placeholder="Enter Company ID"
+            value={companyId}
+            onChange={(e) => setCompanyId(e.target.value)}
+            className="border rounded-md p-2 text-sm"
+          />
+          <Button variant="default" onClick={handleFetchCompany}>Fetch Company</Button>
+        </div>
+
         {/* Balance and Trading Button Section */}
         <div className="flex justify-between items-center mb-8">
           <div className="bg-white p-6 rounded-xl shadow-sm flex-1 mr-4">
@@ -182,6 +232,22 @@ const Dashboard: React.FC = () => {
               {loading ? "Loading..." : ethBalance.toFixed(4)} ETH
             </p>
           </div>
+          
+          {/* Company Details Section */}
+          {companyDetails ? (
+            <div className="bg-white p-6 rounded-xl shadow-sm flex-1 mr-4">
+              <h3 className="text-lg font-semibold text-gray-900">Company Details</h3>
+              <p className="text-sm text-gray-500">Company ID: {companyId}</p>
+              <p className="text-sm text-gray-500">Company Name: {companyDetails.name?.toString()}</p>
+              <p className="text-sm text-gray-500">Threshold: {companyDetails.creditThreshold?.toString()}</p>
+            </div>
+          ) : (
+            <div className="bg-white p-6 rounded-xl shadow-sm flex-1 mr-4">
+              <h3 className="text-lg font-semibold text-gray-900">Company Details</h3>
+              <p className="text-sm text-gray-500">Loading company details...</p>
+            </div>
+          )}
+
           <Button variant="default" onClick={handleTransactionClick} className="h-12">
             Go to Trading
           </Button>
