@@ -10,6 +10,7 @@ import {
   Plane,
   Activity,
   LogOut,
+  User, // Import the User icon for profile
 } from 'lucide-react';
 import { Button } from '../components/Button';
 import {
@@ -64,9 +65,8 @@ const Dashboard: React.FC = () => {
   const [ethBalance, setEthBalance] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Replace with your own Ganache account details (address and private key)
+  // Replace with your own Ganache account details (address)
   const ganacheAccountAddress = '0x43dB9f1C54b380e00Cd7F621Cf172518FC184a47'; // Replace with your Ganache address
-  const ganacheAccountPrivateKey = '0x4f7b68ae9950231c2e81a895beb8c452182a5cf8160b0e30697eeac82a86de3e'; // Replace with your Ganache private key
 
   // Fetch Ethereum balance
   useEffect(() => {
@@ -156,6 +156,11 @@ const Dashboard: React.FC = () => {
     navigate('/trading');
   };
 
+  // Handle navigation to Profile page
+  const handleProfileClick = () => {
+    navigate('/profile');
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white shadow-sm">
@@ -165,10 +170,15 @@ const Dashboard: React.FC = () => {
               <Activity className="h-8 w-8 text-green-600" />
               <span className="ml-2 text-xl font-semibold text-gray-900">GreenLedger</span>
             </div>
-            <Button variant="ghost" className="text-gray-600" onClick={() => navigate('/')}>
-              <LogOut className="w-5 h-5 mr-2" />
-              Sign Out
-            </Button>
+            <div className="flex items-center space-x-4">
+              <Button variant="ghost" className="text-gray-600" onClick={handleProfileClick}>
+                <User  className="w-5 h-5 mr-1" /> Profile
+              </Button>
+              <Button variant="ghost" className="text-gray-600" onClick={() => navigate('/')}>
+                <LogOut className="w-5 h-5 mr-2" />
+                Sign Out
+              </Button>
+            </div>
           </div>
         </div>
       </nav>
@@ -178,7 +188,7 @@ const Dashboard: React.FC = () => {
         <div className="flex justify-between items-center mb-8">
           <div className="bg-white p-6 rounded-xl shadow-sm flex-1 mr-4">
             <h3 className="text-lg font-semibold text-gray-900">Ethereum Balance</h3>
-            <p className="text-2xl font-semibold text-gray-900 mt-1">
+            <p className={`text-2xl font-semibold mt-1 ${loading ? "text-gray-500" : ethBalance >= 0 ? "text-green-600" : "text-red-600"}`}>
               {loading ? "Loading..." : ethBalance.toFixed(4)} ETH
             </p>
           </div>

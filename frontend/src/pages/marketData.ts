@@ -101,3 +101,5 @@ export function getUpdatedPrices(): MarketPrice[] {
     };
   });
 }
+
+export type { MarketPrice };
