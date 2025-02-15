@@ -1,15 +1,19 @@
 const hre = require("hardhat");
 
 async function main() {
+  // Deploy CarbonCredit Contract
   const CarbonCredit = await hre.ethers.getContractFactory("CarbonCredit");
-  
   console.log("Deploying CarbonCredit contract...");
-  const carbonCredit = await CarbonCredit.deploy();  // Deploys the contract
-  
-  // Wait for the transaction to be mined
-  const receipt = await carbonCredit.deploymentTransaction().wait(1);
+  const carbonCredit = await CarbonCredit.deploy();  
+  await carbonCredit.waitForDeployment();
+  console.log("CarbonCredit deployed to:", carbonCredit.target);
 
-  console.log("CarbonCredit deployed to:", carbonCredit.target);  // Use `target` for the address
+  // Deploy GreenScore Contract
+  const GreenScore = await hre.ethers.getContractFactory("GreenScore");
+  console.log("Deploying GreenScore contract...");
+  const greenScore = await GreenScore.deploy();
+  await greenScore.waitForDeployment();
+  console.log("GreenScore deployed to:", greenScore.target);
 }
 
 main().catch((error) => {
