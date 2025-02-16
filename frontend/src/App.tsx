@@ -14,7 +14,7 @@ const App = () => {
       <Route path="/dashboard" element={<Dashboard />} /> {/* Ensure the path is lowercase */}
       <Route path="/trading" element={<Trading />} /> {/* Add the Trading route */}
       <Route path="/profile" element={<Profile />} /> {/* Add the Profile route */}
-      <Route path="/greenscore" element={<GreenScore />} /> {/* Add the GreenScore route */}
+      <Route path="/greenscore" element={<GreenScore companyAddress={""} />} /> {/* Add the GreenScore route */}
     </Routes>
   );
 };
