@@ -15,7 +15,6 @@ const Dashboard: React.FC = () => {
   const [ethBalance, setEthBalance] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const [companyDetails, setCompanyDetails] = useState<any>(null);
-  const [companyId, setCompanyId] = useState<string>('');
   const [greenScore, setGreenScore] = useState<number | null>(null); // State for Green Score
 
   // Replace with your own Ganache account details (address and private key)
@@ -40,32 +39,6 @@ const Dashboard: React.FC = () => {
 
     fetchBalance();
   }, []);
-
-  // Fetch company details and Green Score
-  useEffect(() => {
-    const fetchCompanyDetails = async () => {
-      if (!companyId) return;
-
-      try {
-        const provider = new ethers.JsonRpcProvider('http://localhost:7545'); // Connect to Ganache
-        const signer = new ethers.Wallet(ganacheAccountPrivateKey, provider);
-        const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer); // Create contract instance
-
-        const company = await contract.companies(companyId); // Fetch company details
-        setCompanyDetails(company);
-
-        // Fetch the Green Score for the company
-        const score = await contract.getGreenScore(companyId); // Fetch Green Score
-        setGreenScore(Number(score)); // Set Green Score state
-      } catch (error) {
-        console.error("Error fetching company details or Green Score:", error);
-        setCompanyDetails(null);
-        setGreenScore(null); // Reset Green Score on error
-      }
-    };
-
-    fetchCompanyDetails();
-  }, [companyId]);
 
   // Fetch live price updates
   useEffect(() => {
@@ -109,18 +82,6 @@ const Dashboard: React.FC = () => {
         </div>
       </nav>
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Company ID Input and Fetch Button */}
-        <div className="flex items-center space-x-4 mb-6">
-          <input 
-            type="text"
-            placeholder="Enter Company ID"
-            value={companyId}
-            onChange={(e) => setCompanyId(e.target.value)}
-            className="border rounded-md p-2 text-sm"
-          />
-          <Button variant="default" onClick={() => {/* Fetch company logic */}}>Fetch Company</Button>
-        </div>
-
         {/* Balance and Trading Button Section */}
         <div className="flex justify-between items-center mb-8">
           <div className="bg-white p-6 rounded-xl shadow-sm flex-1 mr-4">
@@ -131,19 +92,12 @@ const Dashboard: React.FC = () => {
           </div>
           
           {/* Company Details Section */}
-          {companyDetails ? (
-            <div className="bg-white p-6 rounded-xl shadow-sm flex-1 mr-4">
-              <h3 className="text-lg font-semibold text-gray-900">Company Details</h3>
-              <p className="text-sm text-gray-500">Company ID: {companyId}</p>
-              <p className="text-sm text-gray-500">Company Name: {companyDetails.name?.toString()}</p>
-              <p className="text-sm text-gray-500">Threshold: {companyDetails.creditThreshold?.toString()}</p>
-            </div>
-          ) : (
-            <div className="bg-white p-6 rounded-xl shadow-sm flex-1 mr-4">
-              <h3 className="text-lg font-semibold text-gray-900">Company Details</h3>
-              <p className="text-sm text-gray-500">Loading company details...</p>
-            </div>
-          )}
+          <div className="bg-white p-6 rounded-xl shadow-sm flex-1 mr-4">
+            <h3 className="text-lg font-semibold text-gray-900">Company Details</h3>
+            <p className="text-sm text-gray-500">Company ID: 0x43dB9f1C54b380e00Cd7F621Cf172518FC184a47</p>
+            <p className="text-sm text-gray-500">Company Name: Green Solutions</p>
+            <p className="text-sm text-gray-500">Threshold: 6300</p>
+          </div>
 
           <Button variant="default" onClick={() => navigate('/trading')} className="h-12">
             Go to Trading
