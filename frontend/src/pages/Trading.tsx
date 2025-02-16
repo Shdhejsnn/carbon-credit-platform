@@ -5,7 +5,6 @@ import { Globe, Plane, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { MarketPrice, initializeMarketPrices, getUpdatedPrices } from './marketData';
 import { useNavigate } from 'react-router-dom';
 
-// Define the type for conversion rates, allowing an empty string
 type ConversionRateKey = '' | 'European Union' | 'UK' | 'Australia' | 'New Zealand' | 'South Korea' | 'China';
 
 interface Transaction {
@@ -38,6 +37,10 @@ const Trading: React.FC = () => {
   // Daily buying limit (initial value)
   const [dailyBuyingLimit, setDailyBuyingLimit] = useState<number>(100); // Example initial limit
   const [userDailyPurchases, setUserDailyPurchases] = useState<number>(0); // Track user purchases for the day
+
+  // Smart Buy state
+  const [smartBuyEnabled, setSmartBuyEnabled] = useState(false);
+  const [targetPrice, setTargetPrice] = useState<number | null>(null);
 
   // Live conversion rates based on the provided market prices
   const conversionRates: Record<ConversionRateKey, { rate: number; currency: string }> = {
@@ -107,6 +110,55 @@ const Trading: React.FC = () => {
       setConvertedPrice(selectedPrice.price);
     }
   }, [selectedRegion, marketPrices]);
+
+  useEffect(() => {
+    if (smartBuyEnabled && targetPrice !== null) {
+      const interval = setInterval(async () => {
+        const updatedPrices = getUpdatedPrices();
+        setMarketPrices(updatedPrices);
+
+        const selectedPrice = updatedPrices.find(market => market.market === selectedRegion);
+        if (selectedPrice && selectedPrice.price <= targetPrice) {
+          // Execute buy transaction
+          try {
+            const provider = new ethers.JsonRpcProvider('http://localhost:7545');
+            const receiverWallet = new ethers.Wallet(receiverPrivateKey, provider);
+
+            const amountInWei = ethers.parseEther(amount);
+            const txResponse = await receiverWallet.sendTransaction({
+              to: ganacheAccountAddress,
+              value: amountInWei,
+            });
+
+            await txResponse.wait();
+            console.log("Smart Buy Transaction successful.");
+
+            setEthBalance(prevBalance => prevBalance + parseFloat(amount)); // Increase balance on buy
+            calculateConvertedBalances(ethBalance + parseFloat(amount)); // Update converted balances
+            setUserDailyPurchases(userDailyPurchases + parseFloat(amount)); // Update daily purchases
+
+            const newTransaction: Transaction = {
+              type: 'buy',
+              amount: parseFloat(amount),
+              price: selectedPrice.price,
+              total: parseFloat(amount) * selectedPrice.price,
+              status: 'Completed',
+              date: new Date().toISOString(),
+            };
+            setTransactions([...transactions, newTransaction]);
+
+            // Disable smart buy after execution
+            setSmartBuyEnabled(false);
+            setTargetPrice(null);
+          } catch (error) {
+            console.error("Error processing smart buy transaction:", error);
+          }
+        }
+      }, 2000);
+
+      return () => clearInterval(interval);
+    }
+  }, [smartBuyEnabled, targetPrice, selectedRegion, amount, receiverPrivateKey, transactions]);
 
   const calculateConvertedBalances = (ethAmount: number) => {
     const localBalance = ethAmount * (conversionRates[selectedRegion]?.rate || 0); // Use the selected region's rate
@@ -374,6 +426,36 @@ const Trading: React.FC = () => {
                     value={receiverPrivateKey}
                     onChange={(e) => setReceiverPrivateKey(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    required
+                  />
+                </div>
+              )}
+
+              {/* Smart Buy Toggle and Target Price Input */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Smart Buy</label>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={smartBuyEnabled}
+                    onChange={(e) => setSmartBuyEnabled(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <span className="text-sm font-medium text-gray-900">Enable Smart Buy</span>
+                </div>
+              </div>
+
+              {smartBuyEnabled && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Target Price (USD)</label>
+                  <input
+                    type="number"
+                    value={targetPrice || ''}
+                    onChange={(e) => setTargetPrice(e.target.value ? parseFloat(e.target.value) : null)}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
+                    placeholder="0.00"
+                    min="0"
+                    step="0.01"
                     required
                   />
                 </div>
