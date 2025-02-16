@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ethers } from 'ethers';
-import { Activity, ArrowDownRight, ArrowUpRight, Globe, LineChartIcon, LogOut, Plane } from 'lucide-react';
+import { Activity, ArrowUpRight, ArrowDownRight, Globe, LineChartIcon, LogOut, Plane } from 'lucide-react';
 import { Button } from '../components/Button';
 import { MarketPrice } from './types';
 import { initializeMarketPrices, getUpdatedPrices } from './marketData';
@@ -16,6 +16,7 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [companyDetails, setCompanyDetails] = useState<any>(null);
   const [companyId, setCompanyId] = useState<string>('');
+  const [greenScore, setGreenScore] = useState<number | null>(null); // State for Green Score
 
   // Replace with your own Ganache account details (address and private key)
   const ganacheAccountAddress = '0x43dB9f1C54b380e00Cd7F621Cf172518FC184a47'; // Replace with your Ganache address
@@ -40,6 +41,32 @@ const Dashboard: React.FC = () => {
     fetchBalance();
   }, []);
 
+  // Fetch company details and Green Score
+  useEffect(() => {
+    const fetchCompanyDetails = async () => {
+      if (!companyId) return;
+
+      try {
+        const provider = new ethers.JsonRpcProvider('http://localhost:7545'); // Connect to Ganache
+        const signer = new ethers.Wallet(ganacheAccountPrivateKey, provider);
+        const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer); // Create contract instance
+
+        const company = await contract.companies(companyId); // Fetch company details
+        setCompanyDetails(company);
+
+        // Fetch the Green Score for the company
+        const score = await contract.getGreenScore(companyId); // Fetch Green Score
+        setGreenScore(Number(score)); // Set Green Score state
+      } catch (error) {
+        console.error("Error fetching company details or Green Score:", error);
+        setCompanyDetails(null);
+        setGreenScore(null); // Reset Green Score on error
+      }
+    };
+
+    fetchCompanyDetails();
+  }, [companyId]);
+
   // Fetch live price updates
   useEffect(() => {
     const interval = setInterval(() => {
@@ -53,30 +80,7 @@ const Dashboard: React.FC = () => {
 
   // Handle navigation to GreenScore page
   const handleGreenScoreClick = () => {
-    navigate('/greenscore');
-  };
-
-  // Handle navigation to Trading page
-  const handleTransactionClick = () => {
-    navigate('/trading');
-  };
-
-  // Fetch company details
-  const handleFetchCompany = async () => {
-    if (!companyId) {
-      alert("Please enter a company ID.");
-      return;
-    }
-    try {
-      const provider = new ethers.JsonRpcProvider('http://localhost:7545');
-      const signer = new ethers.Wallet(ganacheAccountPrivateKey, provider);
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-
-      const company = await contract.companies(companyId); // Replace with actual function to fetch company details
-      setCompanyDetails(company);
-    } catch (error) {
-      console.error("Error fetching company:", error);
-    }
+    navigate('/greenscore', { state: { greenScore } }); // Pass the Green Score to the GreenScore page
   };
 
   return (
@@ -114,7 +118,7 @@ const Dashboard: React.FC = () => {
             onChange={(e) => setCompanyId(e.target.value)}
             className="border rounded-md p-2 text-sm"
           />
-          <Button variant="default" onClick={handleFetchCompany}>Fetch Company</Button>
+          <Button variant="default" onClick={() => {/* Fetch company logic */}}>Fetch Company</Button>
         </div>
 
         {/* Balance and Trading Button Section */}
@@ -141,7 +145,7 @@ const Dashboard: React.FC = () => {
             </div>
           )}
 
-          <Button variant="default" onClick={handleTransactionClick} className="h-12">
+          <Button variant="default" onClick={() => navigate('/trading')} className="h-12">
             Go to Trading
           </Button>
         </div>

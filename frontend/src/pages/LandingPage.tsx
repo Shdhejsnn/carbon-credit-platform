@@ -89,7 +89,7 @@ function LandingPage() {
               transition={{ duration: 0.5, delay: 0.2 }}
               className="bg-white p-8 rounded-2xl shadow-sm"
             >
-                           <LineChart className="w-12 h-12 text-primary-600 mb-6" />
+              <LineChart className="w-12 h-12 text-primary-600 mb-6" />
               <h3 className="text-xl font-semibold mb-4">Real-time Analytics</h3>
               <p className="text-gray-600">
                 Track market trends, monitor your portfolio, and make data-driven decisions.
@@ -117,6 +117,21 @@ function LandingPage() {
           <AuthPage onClose={() => setIsAuthPageOpen(false)} />
         )}
       </AnimatePresence>
+
+      {/* Footer Section */}
+      <footer className="bg-white border-t border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="text-center">
+            <p className="text-gray-500 text-sm">
+              &copy; {new Date().getFullYear()} GreenLedger. All rights reserved.
+            </p>
+            <div className="flex justify-center space-x-4 mt-2">
+              <a href="#" className="text-gray-600 hover:text-gray-900">Privacy Policy</a>
+              <a href="#" className="text-gray-600 hover:text-gray-900">Terms of Service</a>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
