@@ -100,6 +100,14 @@ const Trading: React.FC = () => {
     return () => clearInterval(lockPriceInterval);
   }, [convertedPrice]);
 
+  useEffect(() => {
+    // Update the price per credit when the selected region or market prices change
+    const selectedPrice = marketPrices.find(market => market.market === selectedRegion);
+    if (selectedPrice) {
+      setConvertedPrice(selectedPrice.price);
+    }
+  }, [selectedRegion, marketPrices]);
+
   const calculateConvertedBalances = (ethAmount: number) => {
     const localBalance = ethAmount * (conversionRates[selectedRegion]?.rate || 0); // Use the selected region's rate
     const usdBalance = localBalance * 0.5; // Example: 1 Local Currency = 0.5 USD
