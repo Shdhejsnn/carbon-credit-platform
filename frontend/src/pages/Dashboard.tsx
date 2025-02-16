@@ -5,6 +5,7 @@ import { Activity, ArrowDownRight, ArrowUpRight, Globe, LineChartIcon, LogOut, P
 import { Button } from '../components/Button';
 import { MarketPrice } from './types';
 import { initializeMarketPrices, getUpdatedPrices } from './marketData';
+import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../constants/contract'; // Correct import
 
 // Main Dashboard Component
 const Dashboard: React.FC = () => {
@@ -55,6 +56,29 @@ const Dashboard: React.FC = () => {
     navigate('/greenscore');
   };
 
+  // Handle navigation to Trading page
+  const handleTransactionClick = () => {
+    navigate('/trading');
+  };
+
+  // Fetch company details
+  const handleFetchCompany = async () => {
+    if (!companyId) {
+      alert("Please enter a company ID.");
+      return;
+    }
+    try {
+      const provider = new ethers.JsonRpcProvider('http://localhost:7545');
+      const signer = new ethers.Wallet(ganacheAccountPrivateKey, provider);
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+
+      const company = await contract.companies(companyId); // Replace with actual function to fetch company details
+      setCompanyDetails(company);
+    } catch (error) {
+      console.error("Error fetching company:", error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white shadow-sm">
@@ -90,7 +114,7 @@ const Dashboard: React.FC = () => {
             onChange={(e) => setCompanyId(e.target.value)}
             className="border rounded-md p-2 text-sm"
           />
-          <Button variant="default" onClick={() => {/* Fetch company logic */}}>Fetch Company</Button>
+          <Button variant="default" onClick={handleFetchCompany}>Fetch Company</Button>
         </div>
 
         {/* Balance and Trading Button Section */}
@@ -117,7 +141,7 @@ const Dashboard: React.FC = () => {
             </div>
           )}
 
-          <Button variant="default" onClick={() => navigate('/trading')} className="h-12">
+          <Button variant="default" onClick={handleTransactionClick} className="h-12">
             Go to Trading
           </Button>
         </div>
